@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Porta de Firewall 3: O Núcleo Instável - Desafio Tecnológico</title>
+  
+  <!--
+    =============================================================================
+    ESCAPE ROOM VIRTUAL EDUCATIVO - 6º ANO DO ENSINO FUNDAMENTAL
+    "Porta de Firewall 3: O Núcleo Instável"
+    
+    HABILIDADES PEDAGÓGICAS TRABALHADAS:
+    1. Seleção por teclado (Shift + Setas) com bloqueio de seleção via mouse
+    2. Atalhos de edição de texto: Ctrl+X (Recortar) e Ctrl+V (Colar)
+    3. Reversão de ações: Ctrl+Z (Desfazer / Undo)
+    4. Manipulação espacial: Redimensionamento manual e Arrastar e Soltar (Drag & Drop)
+    
+    ESTRUTURA TÉCNICA:
+    - 100% Autônomo em um único arquivo HTML
+    - CSS nativo com animações de tremor (glitch) e tema cyber (preto, verde neon e vermelho)
+    - JavaScript puro com comentários aprofundados sobre eventos de teclado, clipboard e DOM
+    - Áudio sintetizado via Web Audio API (sem arquivos MP3 externos)
+    =============================================================================
+  -->
+
+  <style>
+    /* -------------------------------------------------------------
+       1. CONFIGURAÇÕES VISUAIS GERAIS E PALETA CYBERPUNK
+       ------------------------------------------------------------- */
+    :root {
+      --bg-dark: #050811;
+      --panel-bg: #0b1120;
+      --card-bg: #0f172a;
+      --neon-green: #22c55e;
+      --neon-red: #ef4444;
+      --neon-amber: #f59e0b;
+      --neon-blue: #0284c7;
+      --neon-cyan: #38bdf8;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border-color: #1e293b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding-bottom: 40px;
+      transition: background-color 0.8s ease;
+    }
+
+    /* Linhas de scanline retrô para ambientação de segurança */
+    .scanlines {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      pointer-events: none;
+      background: linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0),
+        rgba(255, 255, 255, 0) 50%,
+        rgba(0, 0, 0, 0.35) 50%,
+        rgba(0, 0, 0, 0.35)
+      );
+      background-size: 100% 4px;
+      z-index: 999;
+      opacity: 0.3;
+    }
+
+    /* -------------------------------------------------------------
+       2. CABEÇALHO E INDICADOR DE FASES
+       ------------------------------------------------------------- */
+    header {
+      background: rgba(11, 17, 32, 0.9);
+      border-bottom: 1px solid var(--border-color);
+      padding: 14px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge-alarm {
+      font-size: 11px;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid var(--neon-red);
+      color: var(--neon-red);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-weight: bold;
+    }
+
+    .stepper {
+      display: flex;
+      gap: 12px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .step-tag {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      transition: all 0.3s;
+    }
+
+    .step-tag.active {
+      border-color: var(--neon-green);
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--neon-green);
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+    }
+
+    .step-tag.done {
+      border-color: #334155;
+      color: #64748b;
+      text-decoration: line-through;
+    }
+
+    /* -------------------------------------------------------------
+       3. ESTRUTURA DOS ENIGMAS
+       ------------------------------------------------------------- */
+    main {
+      max-width: 1050px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .enigma-section {
+      display: none;
+      animation: fadeIn 0.4s ease-out forwards;
+    }
+
+    .enigma-section.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .banner {
+      background: var(--panel-bg);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      border: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    .banner.alert-red {
+      border-color: rgba(239, 68, 68, 0.5);
+      box-shadow: 0 0 25px rgba(239, 68, 68, 0.15);
+    }
+
+    .banner.alert-amber {
+      border-color: rgba(245, 158, 11, 0.5);
+      box-shadow: 0 0 25px rgba(245, 158, 11, 0.15);
+    }
+
+    .banner.alert-green {
+      border-color: rgba(34, 197, 94, 0.5);
+      box-shadow: 0 0 25px rgba(34, 197, 94, 0.15);
+    }
+
+    .banner h2 {
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+
+    .banner p {
+      color: #cbd5e1;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .shortcuts-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .shortcut-pill {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .kbd {
+      background: #1e293b;
+      color: var(--neon-green);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+
+    /* Alertas Flutuantes */
+    .toast-warning {
+      background: rgba(239, 68, 68, 0.9);
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: monospace;
+      margin-bottom: 12px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* -------------------------------------------------------------
+       4. ESTILOS DO ENIGMA 3.1: TEXTAREA COM MOUSE BLOQUEADO
+       ------------------------------------------------------------- */
+    .terminal-box {
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .terminal-header {
+      background: #0f172a;
+      padding: 10px 16px;
+      font-family: monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .textarea-container {
+      padding: 16px;
+    }
+
+    #scriptArea {
+      width: 100%;
+      height: 240px;
+      min-height: 220px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid #334155;
+      color: var(--neon-green);
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 17px;
+      line-height: 1.8;
+      padding: 14px;
+      border-radius: 6px;
+      outline: none;
+      resize: none;
+      cursor: default;
+    }
+
+    #scriptArea:focus {
+      border-color: var(--neon-green);
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+    }
+
+    .action-btn {
+      background: #16a34a;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .action-btn:hover {
+      background: #22c55e;
+    }
+
+    /* -------------------------------------------------------------
+       5. ESTILOS DO ENIGMA 3.2: TEXTO CORROMPIDO, CTRL+Z E RECORTAR
+       ------------------------------------------------------------- */
+    .protocol-card {
+      background: #020617;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 20px;
+      font-family: monospace;
+      font-size: 15px;
+      line-height: 1.7;
+      margin-bottom: 16px;
+      white-space: pre-wrap;
+    }
+
+    .undo-counter {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: monospace;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+
+    .undo-badge {
+      background: #1e293b;
+      padding: 4px 10px;
+      border-radius: 4px;
+      color: var(--neon-amber);
+      font-weight: bold;
+    }
+
+    .security-input-group {
+      background: var(--panel-bg);
+      border: 1px solid #334155;
+      padding: 20px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .security-input-group input {
+      background: #020617;
+      border: 1px solid #475569;
+      color: var(--neon-green);
+      font-family: monospace;
+      font-size: 15px;
+      padding: 12px 16px;
+      border-radius: 6px;
+      outline: none;
+    }
+
+    .security-input-group input:focus {
+      border-color: var(--neon-green);
+    }
+
+    /* -------------------------------------------------------------
+       6. ESTILOS DO ENIGMA 3.3: QUEBRA-CABEÇA DO HACKER
+       ------------------------------------------------------------- */
+    .puzzle-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 800px) {
+      .puzzle-layout { grid-template-columns: 1fr; }
+    }
+
+    .puzzle-panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    /* Grade Alvo 2x2 */
+    .containment-grid {
+      display: grid;
+      grid-template-columns: 140px 140px;
+      grid-template-rows: 140px 140px;
+      gap: 8px;
+      margin: 20px auto;
+      width: 288px;
+      height: 288px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid #1e293b;
+    }
+
+    .grid-slot {
+      border: 2px dashed #334155;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: monospace;
+      font-size: 11px;
+      color: #64748b;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+
+    .grid-slot.hovered {
+      border-color: var(--neon-green);
+      background: rgba(34, 197, 94, 0.1);
+    }
+
+    .grid-slot.correct-placed {
+      border-color: var(--neon-green);
+      border-style: solid;
+    }
+
+    /* Peças Redimensionáveis */
+    .pieces-bench {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-height: 320px;
+    }
+
+    .puzzle-piece {
+      /* Requisito: resize: both; overflow: hidden; */
+      resize: both;
+      overflow: hidden;
+      min-width: 70px;
+      min-height: 70px;
+      max-width: 260px;
+      max-height: 260px;
+      border: 2px dashed var(--neon-amber);
+      border-radius: 6px;
+      cursor: grab;
+      position: relative;
+      background: #020617;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      user-select: none;
+    }
+
+    .puzzle-piece:active {
+      cursor: grabbing;
+    }
+
+    .puzzle-piece.size-ok {
+      border: 4px solid var(--neon-green) !important;
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.6) !important;
+    }
+
+    /* -------------------------------------------------------------
+       7. TELA DE VITÓRIA FINAL
+       ------------------------------------------------------------- */
+    .victory-box {
+      background: linear-gradient(135deg, #082f49 0%, #0f172a 100%);
+      border: 2px solid var(--neon-cyan);
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 0 40px rgba(56, 189, 248, 0.3);
+    }
+
+    .victory-title {
+      font-size: 36px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: -1px;
+      margin-bottom: 12px;
+      text-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
+    }
+
+    .hacker-assembled {
+      width: 220px;
+      height: 220px;
+      margin: 24px auto;
+      border: 2px solid var(--neon-cyan);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.4);
+    }
+  </style>
+</head>
+<body id="mainBody">
+
+  <div class="scanlines"></div>
+
+  <!-- CABEÇALHO SUPERIOR -->
+  <header>
+    <div class="brand-title">
+      <span style="color: var(--neon-red); font-size: 22px;">🛡️</span>
+      <div>
+        <div style="font-size: 11px; font-family: monospace; color: var(--text-muted); text-transform: uppercase;">
+          Desafio Tecnológico · Segurança Digital
+        </div>
+        <div>Porta de Firewall 3: O Núcleo Instável</div>
+      </div>
+    </div>
+
+    <div class="stepper">
+      <div id="stepTag1" class="step-tag active">3.1 Teclado</div>
+      <div id="stepTag2" class="step-tag">3.2 Desfazer</div>
+      <div id="stepTag3" class="step-tag">3.3 Quebra-Cabeça</div>
+    </div>
+
+    <span id="systemStatusBadge" class="badge-alarm">NÚCLEO INSTÁVEL</span>
+  </header>
+
+  <main>
+    <!-- =============================================================
+         ENIGMA 3.1: A LÓGICA INVERTIDA
+         ============================================================= -->
+    <section id="enigma31" class="enigma-section active">
+      <div class="banner alert-red">
+        <span class="badge-alarm" style="margin-bottom: 10px; display: inline-block;">ENIGMA 3.1</span>
+        <h2>A Lógica Invertida (Ordem do Script de Emergência)</h2>
+        <p>
+          O script de salvamento da escola foi invertido pelo hacker <strong>Guardião-99</strong>. 
+          Se você rodar fora de ordem, o sistema entrará em colapso!
+          Você precisa reorganizar a sequência na ordem lógica correta: <strong>1, 2 e 3</strong>.
+          Para reorganizar use os atalhos de recortar e colar.
+        </p>
+      </div>
+
+      <!-- Alerta de bloqueio -->
+      <div id="mouseWarning" class="toast-warning">
+        ⚠️ <strong>ACESSO NEGADO PELO FIREWALL:</strong> O mouse foi travado! Use as <strong>setas do teclado</strong> para navegar e <strong>Shift + Setas</strong> para selecionar.
+      </div>
+      <div id="typingWarning" class="toast-warning">
+        ⚠️ <strong>DIGITAÇÃO DIRETA BLOQUEADA:</strong> Digitação manual bloqueada! Use <strong>Ctrl+X</strong> para recortar e <strong>Ctrl+V</strong> para colar.
+      </div>
+
+      <div class="terminal-box">
+        <div class="terminal-header">
+          <span>>_ rescue_sequence.sh</span>
+          <span>Validação: Clique no botão <strong style="color: var(--neon-green)">Validar Ordem</strong></span>
+        </div>
+        <div class="textarea-container">
+          <textarea id="scriptArea" autofocus spellcheck="false">3. Iniciar varredura
+1. Salvar arquivos
+2. Bloquear Hacker</textarea>
+          
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
+            <span style="font-size: 12px; font-family: monospace; color: var(--text-muted);">
+              Ordem exigida: 1. Salvar arquivos / 2. Bloquear Hacker / 3. Iniciar varredura
+            </span>
+            <button id="validateBtn31" class="action-btn">Validar Ordem</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =============================================================
+         ENIGMA 3.2: O PROTOCOLO DESFEITO
+         ============================================================= -->
+    <section id="enigma32" class="enigma-section">
+      <div class="banner alert-amber">
+        <p id="enigma32Status">
+          O texto foi corrompido! Use o atalho para <strong style="color: var(--neon-amber)">Desfazer</strong> os ataques do hacker!
+          Após restaurar o texto, encontre a senha vital, recorte e cole no terminal isolado de segurança!
+        </p>
+      </div>
+
+      <div class="undo-counter">
+        <span>Histórico de Restauração:</span>
+        <span id="undoProgressBadge" class="undo-badge">0 / 3 Desfeitos (Pressione Ctrl+Z)</span>
+      </div>
+
+      <div class="terminal-box" style="margin-bottom: 20px;">
+        <div class="terminal-header">
+          <span>>_ security_protocol.txt</span>
+          <span id="protocolStatus">CORROMPIDO PELO INVASOR</span>
+        </div>
+        <div style="padding: 16px;">
+          <div id="protocolTextDisplay" class="protocol-card"></div>
+        </div>
+      </div>
+
+      <div class="security-input-group">
+        <label for="passwordInput" style="font-family: monospace; font-size: 13px; font-weight: bold;">
+          TERMINAL DE SEGURANÇA ISOLADO (Cole a senha aqui):
+        </label>
+        <div style="display: flex; gap: 10px;">
+          <input type="text" id="passwordInput" placeholder="Clique aqui e pressione Ctrl + V para colar a senha..." />
+          <button id="validateBtn32" class="action-btn">Validar Senha [Enter]</button>
+        </div>
+        <div id="passwordError" class="toast-warning" style="margin-top: 5px;">
+          ❌ Senha incorreta! Recorte a senha exatamente como <code>[SENHA_ALFA_99]</code> e cole no campo.
+        </div>
+      </div>
+    </section>
+
+    <!-- =============================================================
+         ENIGMA 3.3: O QUEBRA-CABEÇA DO HACKER
+         ============================================================= -->
+    <section id="enigma33" class="enigma-section">
+      <div class="banner alert-green">
+        <span class="badge-alarm" style="margin-bottom: 10px; display: inline-block; border-color: var(--neon-green); color: var(--neon-green);">ENIGMA 3.3</span>
+        <h2>O Quebra-Cabeça do Hacker (Redimensionamento e Arrastar)</h2>
+        <p>
+          Para trancar o hacker fora da rede, reconstrua sua assinatura visual no painel de contenção.
+          As 4 peças estão desreguladas e com tamanhos errados.
+          <strong>Puxe o canto inferior direito de cada peça para redimensionar para ~140x140px</strong> e arraste-as na ordem certa para a grade 2x2!
+        </p>
+      </div>
+
+      <div id="puzzleFeedback" class="toast-warning" style="background: rgba(245, 158, 11, 0.9);"></div>
+
+      <div class="puzzle-layout">
+        <!-- Grade Alvo 2x2 -->
+        <div class="puzzle-panel">
+          <h3 style="font-family: monospace; font-size: 14px; margin-bottom: 12px; color: var(--neon-green);">
+            🛡️ PAINEL DE CONTENÇÃO (GRADE 2x2)
+          </h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
+            Arraste os quadrantes montando o rosto com capuz no topo e a caveira na base.
+          </p>
+
+          <div class="containment-grid" id="gridSlotsContainer">
+            <div class="grid-slot" data-slot="0">Slot 1 (Topo Esq)</div>
+            <div class="grid-slot" data-slot="1">Slot 2 (Topo Dir)</div>
+            <div class="grid-slot" data-slot="2">Slot 3 (Base Esq)</div>
+            <div class="grid-slot" data-slot="3">Slot 4 (Base Dir)</div>
+          </div>
+
+          <button id="validateBtn33" class="action-btn" style="width: 100%; margin-top: 14px; background: #0284c7;">
+            Verificar Contenção do Firewall
+          </button>
+        </div>
+
+        <!-- Bancada de Peças Desreguladas -->
+        <div class="puzzle-panel">
+          <h3 style="font-family: monospace; font-size: 14px; margin-bottom: 12px; color: var(--neon-amber);">
+            📐 PEÇAS DESREGULADAS (REDIMENSIONE E ARRASTE)
+          </h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
+            Passe o mouse no canto inferior direito para redimensionar (alvo: ~140x140px).
+          </p>
+
+          <div class="pieces-bench" id="benchContainer">
+            <!-- Inseridas dinamicamente via JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =============================================================
+         TELA FINAL DE VITÓRIA
+         ============================================================= -->
+    <section id="victorySection" class="enigma-section">
+      <div class="victory-box">
+        <div style="font-size: 50px; margin-bottom: 10px;">🎉</div>
+        <div class="victory-title">HACKER BLOQUEADO. SISTEMA SALVO!</div>
+        <p style="font-size: 16px; color: #bae6fd; max-width: 600px; margin: 0 auto 20px auto; line-height: 1.6;">
+          Parabéns, investigador! Você reverteu a invasão do <strong>Guardião-99</strong>, dominou a navegação por teclado (Shift+Setas), os atalhos vitais Ctrl+X, Ctrl+V, Ctrl+Z e reconstruiu a assinatura do hacker com perfeição!
+        </p>
+
+        <!-- Desenho montado em 100% -->
+        <div class="hacker-assembled" id="victoryArtwork"></div>
+
+        <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 15px;">
+          <button onclick="location.reload()" class="action-btn" style="background: #334155; color: #fff; font-size: 13px; padding: 12px 24px;">
+            Jogar Novamente
+          </button>
+          <button id="copyCertBtn" onclick="copyCertificateHtml()" class="action-btn" style="background: var(--neon-green); color: #000; font-size: 13px; padding: 12px 24px; font-weight: bold;">
+            Copiar Certificado
+          </button>
+        </div>
+        <div id="copyCertFeedback" style="display: none; color: var(--neon-green); font-family: monospace; font-size: 13px; margin-top: 10px;">
+          ✅ Certificado copiado para a área de transferência! Pressione Ctrl + V para colar.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- =============================================================
+       JAVASCRIPT AUTÔNOMO: TODAS AS REGRAS E INTERCEPTAÇÕES
+       ============================================================= -->
+  <script>
+    /*
+     * =========================================================================
+     * SÍNTESE DE ÁUDIO VIA WEB AUDIO API (Sem dependência de arquivos externos)
+     * =========================================================================
+     */
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function playTone(freq, duration, type = 'sine') {
+      try {
+        if (!audioCtx) audioCtx = new AudioContextClass();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function soundKey() { playTone(500, 0.05, 'triangle'); }
+    function soundError() { playTone(120, 0.25, 'sawtooth'); }
+    function soundUndo() { playTone(350, 0.12, 'sine'); playTone(650, 0.12, 'sine'); }
+    function soundSuccess() {
+      playTone(440, 0.1, 'sine');
+      setTimeout(() => playTone(554, 0.1, 'sine'), 80);
+      setTimeout(() => playTone(659, 0.1, 'sine'), 160);
+      setTimeout(() => playTone(880, 0.3, 'sine'), 240);
+    }
+    function soundVictory() {
+      [523, 659, 783, 1046].forEach((f, i) => {
+        setTimeout(() => playTone(f, 0.8, 'triangle'), i * 120);
+      });
+    }
+
+    /*
+     * =========================================================================
+     * SVG DO HACKER DIVIDIDO EM 4 QUADRANTES (2x2)
+     * =========================================================================
+     */
+    function getHackerQuadrantSvg(quadrantIndex) {
+      // 0: topo esquerdo, 1: topo direito, 2: base esquerda, 3: base direita
+      const viewBoxes = ['0 0 100 100', '100 0 100 100', '0 100 100 100', '100 100 100 100'];
+      const vb = viewBoxes[quadrantIndex] || '0 0 200 200';
+
+      return `
+        <svg viewBox="${vb}" style="width:100%; height:100%; display:block; pointer-events:none;" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="200" height="200" fill="#0b1120" />
+          <path d="M 0 50 H 200 M 0 100 H 200 M 0 150 H 200 M 50 0 V 200 M 100 0 V 200 M 150 0 V 200" stroke="#1e293b" stroke-width="1" />
+          <!-- Capuz do Hacker -->
+          <path d="M 100 15 C 50 15, 30 70, 30 115 C 30 140, 50 160, 50 160 L 150 160 C 150 160, 170 140, 170 115 C 170 70, 150 15, 100 15 Z" fill="#0f172a" stroke="#22c55e" stroke-width="3" />
+          <ellipse cx="100" cy="85" rx="45" ry="50" fill="#020617" />
+          <!-- Olhos Neon do Hacker (Visor) -->
+          <polygon points="65,80 88,77 85,85 68,86" fill="#22c55e" />
+          <circle cx="77" cy="82" r="2.5" fill="#ffffff" />
+          <polygon points="135,80 112,77 115,85 132,86" fill="#22c55e" />
+          <circle cx="123" cy="82" r="2.5" fill="#ffffff" />
+          <path d="M 90 95 L 100 105 L 110 95" stroke="#22c55e" stroke-width="2" fill="none" />
+          <!-- Ombros e Peito -->
+          <path d="M 20 195 L 45 155 L 100 165 L 155 155 L 180 195 Z" fill="#1e293b" stroke="#22c55e" stroke-width="2.5" />
+          <!-- Caveira no Peito -->
+          <circle cx="100" cy="155" r="16" fill="#22c55e" />
+          <rect x="92" y="167" width="16" height="8" rx="2" fill="#22c55e" />
+          <line x1="96" y1="170" x2="96" y2="175" stroke="#020617" stroke-width="1.5" />
+          <line x1="100" y1="170" x2="100" y2="175" stroke="#020617" stroke-width="1.5" />
+          <line x1="104" y1="170" x2="104" y2="175" stroke="#020617" stroke-width="1.5" />
+          <circle cx="94" cy="154" r="3.5" fill="#020617" />
+          <circle cx="106" cy="154" r="3.5" fill="#020617" />
+          <polygon points="100,160 98,164 102,164" fill="#020617" />
+        </svg>
+      `;
+    }
+
+    /*
+     * =========================================================================
+     * ENIGMA 3.1: LÓGICA DE TECLADO E BLOQUEIO DE MOUSE
+     * =========================================================================
+     */
+    const scriptArea = document.getElementById('scriptArea');
+    const mouseWarning = document.getElementById('mouseWarning');
+    const typingWarning = document.getElementById('typingWarning');
+    const validateBtn31 = document.getElementById('validateBtn31');
+
+    // Foco automático ao carregar com cursor posicionado e ativo
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        if (scriptArea) {
+          scriptArea.focus();
+          scriptArea.setSelectionRange(0, 0);
+        }
+      }, 50);
+    });
+
+    /**
+     * REGRA CRÍTICA 1: Bloqueio do Mouse no campo de texto
+     * Impede qualquer seleção arrastando com o mouse (mousedown),
+     * mas mantém o foco com focus() para o aluno usar as setas.
+     */
+    scriptArea.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      soundError();
+      mouseWarning.style.display = 'flex';
+      setTimeout(() => mouseWarning.style.display = 'none', 3000);
+      scriptArea.focus();
+    });
+
+    /**
+     * REGRA CRÍTICA 2: Interceptação do Teclado (keydown)
+     * - Permite navegação (Setas, Home, End, PageUp/Down)
+     * - Permite seleção com Shift + Setas
+     * - Permite atalhos de edição: Ctrl+X (recortar), Ctrl+V (colar), Ctrl+C (copiar), Ctrl+A
+     * - Valida a ordem ao apertar [Enter]
+     * - Bloqueia digitação manual de letras/números
+     */
+    scriptArea.addEventListener('keydown', (e) => {
+      // Tecla ENTER: Permite quebra de linha normal (sem enviar)
+      if (e.key === 'Enter') {
+        return;
+      }
+
+      // Permite atalhos com Ctrl ou Cmd (Ctrl+X, Ctrl+V, Ctrl+C, Ctrl+A, Ctrl+Z)
+      if (e.ctrlKey || e.metaKey) {
+        const k = e.key.toLowerCase();
+        if (['x', 'v', 'c', 'a', 'z'].includes(k)) {
+          return; // Ação de recortar/colar permitida!
+        }
+      }
+
+      // Permite navegação e seleção por teclado
+      const allowedNav = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown', 'Tab'];
+      if (allowedNav.includes(e.key)) {
+        return; // Navegação com ou sem Shift permitida!
+      }
+
+      // Bloqueia qualquer caractere digitado diretamente
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        soundError();
+        typingWarning.style.display = 'flex';
+        setTimeout(() => typingWarning.style.display = 'none', 2500);
+      }
+    });
+
+    validateBtn31.addEventListener('click', checkScriptOrder31);
+
+    function checkScriptOrder31() {
+      // Normaliza o texto linha a linha removendo espaços extras
+      const lines = scriptArea.value.split('\n').map(l => l.trim()).filter(Boolean);
+      const isCorrect = (
+        lines.length === 3 &&
+        lines[0].toLowerCase().includes('1. salvar arquivos') &&
+        lines[1].toLowerCase().includes('2. bloquear hacker') &&
+        lines[2].toLowerCase().includes('3. iniciar varredura')
+      );
+
+      if (isCorrect) {
+        soundSuccess();
+        document.getElementById('stepTag1').classList.remove('active');
+        document.getElementById('stepTag1').classList.add('done');
+        document.getElementById('stepTag2').classList.add('active');
+        document.getElementById('enigma31').classList.remove('active');
+        document.getElementById('enigma32').classList.add('active');
+        startEnigma32();
+      } else {
+        soundError();
+        typingWarning.textContent = '❌ Ordem incorreta! A sequência correta deve ser: 1. Salvar arquivos / 2. Bloquear Hacker / 3. Iniciar varredura';
+        typingWarning.style.display = 'flex';
+        setTimeout(() => {
+          typingWarning.style.display = 'none';
+          typingWarning.textContent = '⚠️ DIGITAÇÃO DIRETA BLOQUEADA: Use Ctrl+X para recortar e Ctrl+V para colar.';
+        }, 3500);
+      }
+    }
+
+    /*
+     * =========================================================================
+     * ENIGMA 3.2: LÓGICA DE DESFAZER (Ctrl+Z), RECORTAR E COLAR
+     * =========================================================================
+     */
+    let undoCount = 0;
+    const protocolStages = [
+      // 0: Corrompido
+      `█▓▒░ @#$%!& PROTOCOLO_CORROMPIDO_99 █▓▒░\nO n#cl&o 3sc0l@r f0! @t@c@d0 p0r s0br3c@rg@ d3 p@c0t3s.\nP@r@ n3utr@l!z@r o v!rus: [S3NH@_#%!_??]\n474QU3 3M 4ND4M3NT0: █▓▒░ 99_HACKER_OVERRIDE`,
+      // 1: Reversão 1
+      `PROTOCOLO DE CONTENÇÃO // DADOS RECUPERANDO...\nO núcleo escolar foi atacado por sobrecarga de pacotes.\nPara neutralizar o vírus e restabelecer o firewall:\nChave quase restaurada: [SENHA_ALFA_??]`,
+      // 2: Reversão 2
+      `PROTOCOLO DE CONTENÇÃO DO GUARDIÃO-99:\nO núcleo escolar foi atacado por sobrecarga de pacotes.\nPara neutralizar o vírus e restabelecer o firewall central,\nrecupere a chave mestra final: [SENHA_ALFA_99]`,
+      // 3: 100% Restaurado
+      `PROTOCOLO DE CONTENÇÃO DO GUARDIÃO-99:
+O núcleo escolar foi atacado por sobrecarga de pacotes.
+Para neutralizar o vírus e restabelecer o firewall central,
+copie e valide a chave de segurança master:
+[SENHA_ALFA_99]`
+    ];
+
+    const protocolDisplay = document.getElementById('protocolTextDisplay');
+    const undoBadge = document.getElementById('undoProgressBadge');
+    const protocolStatus = document.getElementById('protocolStatus');
+    const passwordInput = document.getElementById('passwordInput');
+    const validateBtn32 = document.getElementById('validateBtn32');
+    const passwordError = document.getElementById('passwordError');
+
+    function startEnigma32() {
+      undoCount = 0;
+      updateProtocolView();
+    }
+
+    function updateProtocolView() {
+      protocolDisplay.textContent = protocolStages[undoCount];
+      if (undoCount < 3) {
+        undoBadge.textContent = `${undoCount} / 3 Desfeitos (Pressione Ctrl + Z)`;
+        protocolStatus.textContent = 'CORROMPIDO PELO INVASOR';
+        protocolStatus.style.color = 'var(--neon-red)';
+      } else {
+        undoBadge.textContent = '✅ 3 / 3 (100% Restaurado!)';
+        undoBadge.style.color = 'var(--neon-green)';
+        protocolStatus.textContent = 'RESTAURADO COM SUCESSO';
+        protocolStatus.style.color = 'var(--neon-green)';
+        document.getElementById('enigma32Status').innerHTML = `
+          ✅ <strong>Texto restaurado!</strong> Agora selecione a chave <code>[SENHA_ALFA_99]</code> no documento acima, use <strong>Ctrl + X</strong> para recortar e cole abaixo com <strong>Ctrl + V</strong>!
+        `;
+      }
+    }
+
+    /**
+     * Interceptação global de Ctrl+Z (Undo)
+     */
+    window.addEventListener('keydown', (e) => {
+      const isEnigma32Active = document.getElementById('enigma32').classList.contains('active');
+      if (!isEnigma32Active) return;
+
+      // 1. Intercepta Ctrl+Z ou Cmd+Z para restauração
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        if (undoCount < 3) {
+          e.preventDefault();
+          soundUndo();
+          undoCount++;
+          updateProtocolView();
+          if (undoCount === 3) soundSuccess();
+        }
+      }
+
+      // 2. Bloqueia estritamente Ctrl+C / Cmd+C (Copiar)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        const sel = window.getSelection().toString().trim();
+        if (sel.includes('SENHA_ALFA_99') || sel.includes('SENHA') || sel.length > 0) {
+          e.preventDefault();
+          soundError();
+          passwordError.innerHTML = '⚠️ <strong>COPIAR (Ctrl + C) BLOQUEADO PELO FIREWALL:</strong> Para capturar a chave mestra, use obrigatoriamente <strong>Recortar (Ctrl + X)</strong>!';
+          passwordError.style.display = 'block';
+          setTimeout(() => {
+            passwordError.style.display = 'none';
+            passwordError.innerHTML = '❌ Senha incorreta! Recorte a senha exatamente como <code>[SENHA_ALFA_99]</code> e cole no campo.';
+          }, 3500);
+        }
+      }
+    });
+
+    /**
+     * Bloqueio estrito de Cópia (Ctrl+C / Botão direito) na área do texto
+     */
+    protocolDisplay.addEventListener('copy', (e) => {
+      e.preventDefault();
+      if (e.clipboardData) {
+        e.clipboardData.clearData();
+        e.clipboardData.setData('text/plain', '');
+      }
+      soundError();
+      passwordError.innerHTML = '⚠️ <strong>COPIAR (Ctrl + C) BLOQUEADO PELO FIREWALL:</strong> Para capturar a chave mestra, use obrigatoriamente <strong>Recortar (Ctrl + X)</strong>!';
+      passwordError.style.display = 'block';
+      setTimeout(() => {
+        passwordError.style.display = 'none';
+        passwordError.innerHTML = '❌ Senha incorreta! Recorte a senha exatamente como <code>[SENHA_ALFA_99]</code> e cole no campo.';
+      }, 3500);
+    });
+
+    protocolDisplay.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      soundError();
+      passwordError.innerHTML = '⚠️ <strong>MENU DE CONTEXTO BLOQUEADO:</strong> Use o teclado com <strong>Ctrl + X</strong> para recortar a chave!';
+      passwordError.style.display = 'block';
+      setTimeout(() => {
+        passwordError.style.display = 'none';
+        passwordError.innerHTML = '❌ Senha incorreta! Recorte a senha exatamente como <code>[SENHA_ALFA_99]</code> e cole no campo.';
+      }, 3500);
+    });
+
+    /**
+     * Interceptação do Recorte (Ctrl+X) na área do texto
+     */
+    protocolDisplay.addEventListener('cut', (e) => {
+      if (undoCount < 3) return;
+      const selection = window.getSelection().toString().trim();
+      if (selection.includes('SENHA_ALFA_99') || selection.includes('SENHA') || selection.length > 0) {
+        if (e.clipboardData) {
+          e.clipboardData.setData('text/plain', '[SENHA_ALFA_99]');
+        }
+        soundKey();
+        // Permite o recorte e remove visualmente a senha recortada
+        setTimeout(() => {
+          protocolDisplay.innerHTML = protocolStages[3].replace('[SENHA_ALFA_99]', '<mark style="background:#334155; color:#94a3b8;">[SENHA RECORTADA PARA A ÁREA DE TRANSFERÊNCIA]</mark>');
+        }, 50);
+      }
+    });
+
+    validateBtn32.addEventListener('click', checkPassword32);
+    passwordInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') checkPassword32();
+    });
+
+    function checkPassword32() {
+      const val = passwordInput.value.trim().toUpperCase();
+      if (val === '[SENHA_ALFA_99]' || val === 'SENHA_ALFA_99') {
+        soundSuccess();
+        passwordError.style.display = 'none';
+        document.getElementById('stepTag2').classList.remove('active');
+        document.getElementById('stepTag2').classList.add('done');
+        document.getElementById('stepTag3').classList.add('active');
+        document.getElementById('enigma32').classList.remove('active');
+        document.getElementById('enigma33').classList.add('active');
+        initEnigma33();
+      } else {
+        soundError();
+        passwordError.style.display = 'flex';
+        setTimeout(() => passwordError.style.display = 'none', 3000);
+      }
+    }
+
+    /*
+     * =========================================================================
+     * ENIGMA 3.3: QUEBRA-CABEÇA DO HACKER (REDIMENSIONAR E ARRASTAR)
+     * =========================================================================
+     */
+    // Configurações das 4 peças propositalmente desreguladas
+    const puzzlePiecesData = [
+      { id: 0, w: 210, h: 90, name: 'Topo Esquerdo' },
+      { id: 1, w: 240, h: 240, name: 'Topo Direito' },
+      { id: 2, w: 90, h: 200, name: 'Base Esquerda' },
+      { id: 3, w: 80, h: 80, name: 'Base Direita' }
+    ];
+
+    let currentPieces = JSON.parse(JSON.stringify(puzzlePiecesData));
+    let draggedPieceId = null;
+
+    function initEnigma33() {
+      const bench = document.getElementById('benchContainer');
+      bench.innerHTML = '';
+
+      currentPieces.forEach(p => {
+        const pieceEl = document.createElement('div');
+        pieceEl.className = 'puzzle-piece';
+        pieceEl.id = `piece_${p.id}`;
+        pieceEl.draggable = true;
+        pieceEl.style.width = p.w + 'px';
+        pieceEl.style.height = p.h + 'px';
+        pieceEl.innerHTML = getHackerQuadrantSvg(p.id);
+
+        // Monitora o redimensionamento nativo pelo canto inferior direito
+        const resizeObserver = new ResizeObserver(entries => {
+          for (let entry of entries) {
+            if (p.isLocked) return;
+            const cr = entry.contentRect;
+            p.w = cr.width;
+            p.h = cr.height;
+            // Checa tolerância de tamanho: ao atingir próximo a 140px, fixa e trava permanentemente!
+            const isSizeOk = Math.abs(cr.width - 140) <= 25 && Math.abs(cr.height - 140) <= 25;
+            if (isSizeOk) {
+              p.isLocked = true;
+              p.w = 140;
+              p.h = 140;
+              pieceEl.style.width = '140px';
+              pieceEl.style.height = '140px';
+              pieceEl.style.resize = 'none';
+              pieceEl.classList.add('size-ok');
+              soundSuccess();
+            }
+          }
+        });
+        resizeObserver.observe(pieceEl);
+
+        // Drag & Drop (só permite arrastar se a borda estiver verde)
+        pieceEl.addEventListener('dragstart', (e) => {
+          if (!pieceEl.classList.contains('size-ok')) {
+            e.preventDefault();
+            soundError();
+            const feedback = document.getElementById('puzzleFeedback');
+            feedback.textContent = '📏 Redimensione a peça pelo canto inferior direito com o mouse até a borda ficar verde antes de arrastar!';
+            feedback.style.display = 'flex';
+            setTimeout(() => feedback.style.display = 'none', 3000);
+            return;
+          }
+          draggedPieceId = p.id;
+          soundKey();
+        });
+
+        bench.appendChild(pieceEl);
+      });
+
+      // Configuração dos 4 Slots da grade
+      const slots = document.querySelectorAll('.grid-slot');
+      slots.forEach(slot => {
+        slot.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          slot.classList.add('hovered');
+        });
+        slot.addEventListener('dragleave', () => slot.classList.remove('hovered'));
+        slot.addEventListener('drop', (e) => {
+          e.preventDefault();
+          slot.classList.remove('hovered');
+          if (draggedPieceId !== null) {
+            const pieceEl = document.getElementById(`piece_${draggedPieceId}`);
+            if (pieceEl) {
+              slot.innerHTML = '';
+              slot.appendChild(pieceEl);
+              soundKey();
+            }
+          }
+        });
+      });
+
+      // Bancada também aceita devolver a peça
+      bench.addEventListener('dragover', (e) => e.preventDefault());
+      bench.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (draggedPieceId !== null) {
+          const pieceEl = document.getElementById(`piece_${draggedPieceId}`);
+          if (pieceEl) bench.appendChild(pieceEl);
+        }
+      });
+    }
+
+    document.getElementById('validateBtn33').addEventListener('click', validatePuzzle33);
+
+    function validatePuzzle33() {
+      const feedback = document.getElementById('puzzleFeedback');
+      const slots = document.querySelectorAll('.grid-slot');
+      let allInPlace = true;
+      let allCorrectPosition = true;
+      let allCorrectSize = true;
+
+      slots.forEach((slot, idx) => {
+        const piece = slot.querySelector('.puzzle-piece');
+        if (!piece) {
+          allInPlace = false;
+        } else {
+          const pId = parseInt(piece.id.replace('piece_', ''), 10);
+          if (pId !== idx) {
+            allCorrectPosition = false;
+          }
+          const w = piece.offsetWidth;
+          const h = piece.offsetHeight;
+          if (Math.abs(w - 140) > 35 || Math.abs(h - 140) > 35) {
+            allCorrectSize = false;
+          }
+        }
+      });
+
+      if (!allInPlace) {
+        soundError();
+        feedback.textContent = '⚠️ Encaixe todas as 4 peças nos slots da grade 2x2 antes de validar!';
+        feedback.style.display = 'flex';
+        setTimeout(() => feedback.style.display = 'none', 3000);
+        return;
+      }
+
+      if (!allCorrectPosition) {
+        soundError();
+        feedback.textContent = '❌ Posição incorreta! Observe os olhos, capuz e caveira para montar o hacker na ordem certa.';
+        feedback.style.display = 'flex';
+        setTimeout(() => feedback.style.display = 'none', 3500);
+        return;
+      }
+
+      if (!allCorrectSize) {
+        soundError();
+        feedback.textContent = '📏 Tamanho incorreto! Puxe os cantos inferiores direitos de cada peça para ficarem quadradas (~140x140px).';
+        feedback.style.display = 'flex';
+        setTimeout(() => feedback.style.display = 'none', 3500);
+        return;
+      }
+
+      // VITÓRIA TOTAL!
+      soundVictory();
+      triggerFinalVictory();
+    }
+
+    function triggerFinalVictory() {
+      // 1. Remove tremor e sons de alarme
+      document.getElementById('mainBody').classList.remove('screen-tremor');
+      document.getElementById('mainBody').style.backgroundColor = '#030712';
+      
+      // 2. Atualiza badge
+      const badge = document.getElementById('systemStatusBadge');
+      badge.textContent = 'SISTEMA SALVO // HACKER BLOQUEADO';
+      badge.style.borderColor = 'var(--neon-cyan)';
+      badge.style.color = 'var(--neon-cyan)';
+      badge.style.background = 'rgba(56, 189, 248, 0.2)';
+
+      // 3. Monta o visual completo do hacker salvo na tela final
+      document.getElementById('victoryArtwork').innerHTML = `
+        <div style="display:grid; grid-template-columns:1fr 1fr; width:100%; height:100%;">
+          ${getHackerQuadrantSvg(0)}
+          ${getHackerQuadrantSvg(1)}
+          ${getHackerQuadrantSvg(2)}
+          ${getHackerQuadrantSvg(3)}
+        </div>
+      `;
+
+      // 4. Exibe a tela de vitória
+      document.getElementById('enigma33').classList.remove('active');
+      document.getElementById('victorySection').classList.add('active');
+    }
+
+    function copyCertificateHtml() {
+      const cert = `══════════════════════════════════════════════════════════════════
+  CERTIFICADO DE CONCLUSÃO
+  Porta de Firewall 3: O Núcleo Instável
+══════════════════════════════════════════════════════════════════
+
+Investigador(a): Investigador Cibernético
+Missão: Neutralização do Hacker Guardião-99
+Status: Ameaça Bloqueada com Sucesso!
+
+HABILIDADES DOMINADAS:
+✔ Navegação sem Mouse (Setas e Shift para seleção)
+✔ Recortar & Colar (Ctrl + X e Ctrl + V)
+✔ Desfazer Invasões (Ctrl + Z)
+✔ Redimensionamento e Drag-and-Drop (Grade 2x2)
+
+Certificado emitido e autenticado pelo Sistema Central do Firewall Escolar.
+══════════════════════════════════════════════════════════════════`;
+
+      navigator.clipboard.writeText(cert).then(() => {
+        soundSuccess();
+        const btn = document.getElementById('copyCertBtn');
+        const feedback = document.getElementById('copyCertFeedback');
+        btn.textContent = '✅ Certificado Copiado!';
+        feedback.style.display = 'block';
+        setTimeout(() => {
+          btn.textContent = 'Copiar Certificado';
+          feedback.style.display = 'none';
+        }, 3000);
+      }).catch(() => {
+        soundKey();
+      });
+    }
+  </script>
+</body>
+</html>
