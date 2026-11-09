@@ -1,6 +1,0 @@
-{
-  "name": "Firewall Porta 3: O Núcleo Instável - Escape Room 6º Ano",
-  "description": "Escape Room educativo gamificado para o 6º ano sobre atalhos de teclado (Shift+Setas, Ctrl+X, Ctrl+V, Ctrl+Z), redimensionamento de elementos e drag-and-drop.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
